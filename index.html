@@ -1,1 +1,319 @@
-hello
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>MetalWorth (MVP)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root { --bg:#0f172a; --card:#111827; --muted:#9ca3af; --text:#e5e7eb; --accent:#22c55e; --danger:#ef4444; }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial; background:var(--bg); color:var(--text)}
+    .wrap{max-width:1000px; margin:32px auto; padding:0 16px}
+    h1{margin:0 0 8px; font-size:28px}
+    .sub{color:var(--muted); margin-bottom:24px}
+    .card{background:var(--card); border:1px solid #1f2937; border-radius:14px; padding:16px; margin-bottom:16px; box-shadow:0 8px 20px rgba(0,0,0,.25)}
+    .row{display:grid; grid-template-columns:repeat(12,1fr); gap:10px}
+    label{font-size:12px; color:var(--muted); display:block; margin-bottom:6px}
+    input, select, button{width:100%; padding:10px 12px; border-radius:10px; border:1px solid #293346; background:#0b1220; color:var(--text)}
+    input::placeholder{color:#6b7280}
+    button{cursor:pointer; background:#111827; transition:all .15s ease}
+    .btn-primary{background:var(--accent); color:#06280f; border:none; font-weight:600}
+    .btn-outline{border-color:#334155}
+    .btn-danger{background:var(--danger); color:#190a0a; border:none}
+    .btn-ghost{background:transparent; border:1px dashed #334155}
+    table{width:100%; border-collapse:separate; border-spacing:0 8px}
+    th, td{padding:10px 12px; text-align:left}
+    th{color:#a3a3a3; font-weight:600; border-bottom:1px solid #1f2937}
+    tr{background:#0b1220; border:1px solid #1f2937}
+    tr td:first-child, tr th:first-child{border-top-left-radius:10px; border-bottom-left-radius:10px}
+    tr td:last-child, tr th:last-child{border-top-right-radius:10px; border-bottom-right-radius:10px}
+    .right{text-align:right}
+    .flex{display:flex; gap:10px; flex-wrap:wrap}
+    .pill{padding:6px 10px; border-radius:999px; background:#0b1220; border:1px solid #1f2937; color:#9ca3af; font-size:12px}
+    .total{font-size:22px; font-weight:700}
+    @media (max-width: 720px){
+      .row{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>MetalWorth</h1>
+    <div class="sub">Track individual pieces by metal, karat, and grams. Update live prices and chart your collection’s total over time.</div>
+
+    <!-- Add Item -->
+    <div class="card">
+      <div class="row">
+        <div style="grid-column: span 3;">
+          <label for="metal">Metal</label>
+          <select id="metal">
+            <option>Gold</option>
+            <option>Silver</option>
+            <option>Platinum</option>
+            <option>Palladium</option>
+          </select>
+        </div>
+        <div style="grid-column: span 3;">
+          <label for="karat">Karat (1–24)</label>
+          <input id="karat" type="number" min="1" max="24" step="1" placeholder="e.g., 18" />
+        </div>
+        <div style="grid-column: span 3;">
+          <label for="grams">Grams</label>
+          <input id="grams" type="number" min="0" step="0.001" placeholder="e.g., 12.5" />
+        </div>
+        <div style="grid-column: span 3; align-self:end">
+          <button class="btn-primary" id="addBtn">Add Item</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Prices -->
+    <div class="card">
+      <div class="row">
+        <div style="grid-column: span 3;">
+          <label for="priceGold">Gold $/g</label>
+          <input id="priceGold" type="number" min="0" step="0.01" value="60" />
+        </div>
+        <div style="grid-column: span 3;">
+          <label for="priceSilver">Silver $/g</label>
+          <input id="priceSilver" type="number" min="0" step="0.01" value="0.75" />
+        </div>
+        <div style="grid-column: span 3;">
+          <label for="pricePlatinum">Platinum $/g</label>
+          <input id="pricePlatinum" type="number" min="0" step="0.01" value="30" />
+        </div>
+        <div style="grid-column: span 3;">
+          <label for="pricePalladium">Palladium $/g</label>
+          <input id="pricePalladium" type="number" min="0" step="0.01" value="35" />
+        </div>
+      </div>
+      <div class="flex" style="margin-top:12px;">
+        <button class="btn-outline" id="updateBtn">Update Prices & Snapshot</button>
+        <button class="btn-ghost" id="resetHistoryBtn" title="Clears only the chart history">Reset History</button>
+        <span class="pill">Purity formula: value = grams × (price/g) × (karat ÷ 24)</span>
+      </div>
+    </div>
+
+    <!-- Collection Table -->
+    <div class="card">
+      <div class="flex" style="justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <div class="pill">Items persist in your browser (localStorage)</div>
+        <div class="total">Total: $<span id="totalValue">0.00</span></div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Metal</th>
+            <th>Karat</th>
+            <th class="right">Grams</th>
+            <th class="right">Value</th>
+            <th class="right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Chart -->
+    <div class="card">
+      <div class="flex" style="justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div class="pill">Snapshots recorded when you click “Update Prices & Snapshot”</div>
+      </div>
+      <canvas id="chart" height="90"></canvas>
+    </div>
+  </div>
+
+  <script>
+    // ---------- State ----------
+    const LS_ITEMS = "mw_items_v1";
+    const LS_HISTORY = "mw_history_v1";
+    const LS_PRICES = "mw_prices_v1";
+
+    let items = load(LS_ITEMS, []);
+    let history = load(LS_HISTORY, []);
+    let prices = load(LS_PRICES, {
+      Gold: 60, Silver: 0.75, Platinum: 30, Palladium: 35
+    });
+
+    // ---------- DOM ----------
+    const el = (id) => document.getElementById(id);
+    const metalEl = el("metal");
+    const karatEl = el("karat");
+    const gramsEl = el("grams");
+    const tbody = el("tbody");
+    const totalValueEl = el("totalValue");
+
+    // price inputs
+    const priceInputs = {
+      Gold: el("priceGold"),
+      Silver: el("priceSilver"),
+      Platinum: el("pricePlatinum"),
+      Palladium: el("pricePalladium"),
+    };
+
+    // hydrate price fields from saved prices
+    for (const m of Object.keys(priceInputs)) {
+      priceInputs[m].value = prices[m];
+      priceInputs[m].addEventListener("input", () => {
+        prices[m] = toNum(priceInputs[m].value, 0);
+        save(LS_PRICES, prices);
+        render();
+      });
+    }
+
+    // ---------- Utils ----------
+    function save(key, value){ localStorage.setItem(key, JSON.stringify(value)); }
+    function load(key, fallback){ try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } }
+    function toNum(v, d=0){ const n = Number(v); return Number.isFinite(n) ? n : d; }
+    function purityFromKarat(k){ const n = toNum(k, 0); return Math.min(Math.max(n,1),24)/24; } // clamp 1..24
+
+    function pricePerGram(metal){
+      return toNum(priceInputs[metal].value, 0);
+    }
+
+    function valueOfItem(item){
+      const price = pricePerGram(item.metal);
+      const purity = purityFromKarat(item.karat);
+      return toNum(item.grams,0) * price * purity;
+    }
+
+    // ---------- Table ----------
+    function renderTable(){
+      tbody.innerHTML = "";
+      let total = 0;
+
+      items.forEach((item, idx) => {
+        const val = valueOfItem(item);
+        total += val;
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${item.metal}</td>
+          <td>${item.karat}</td>
+          <td class="right">${Number(item.grams).toFixed(3)}</td>
+          <td class="right">$${val.toFixed(2)}</td>
+          <td class="right">
+            <button class="btn-outline" data-edit="${idx}">Edit</button>
+            <button class="btn-danger" data-del="${idx}">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      totalValueEl.textContent = total.toFixed(2);
+    }
+
+    // ---------- Items Actions ----------
+    function addItem(){
+      const metal = metalEl.value;
+      const karat = toNum(karatEl.value, NaN);
+      const grams = toNum(gramsEl.value, NaN);
+
+      if (!Number.isFinite(karat) || karat < 1 || karat > 24) {
+        alert("Please enter a karat between 1 and 24.");
+        return;
+      }
+      if (!Number.isFinite(grams) || grams <= 0) {
+        alert("Please enter grams > 0.");
+        return;
+      }
+
+      items.push({ metal, karat, grams });
+      save(LS_ITEMS, items);
+      karatEl.value = "";
+      gramsEl.value = "";
+      render();
+    }
+
+    function onTableClick(e){
+      const delIdx = e.target.getAttribute("data-del");
+      const editIdx = e.target.getAttribute("data-edit");
+
+      if (delIdx !== null){
+        const i = Number(delIdx);
+        if (confirm("Delete this item?")){
+          items.splice(i,1);
+          save(LS_ITEMS, items);
+          render();
+        }
+      }
+
+      if (editIdx !== null){
+        const i = Number(editIdx);
+        const it = items[i];
+        const newMetal = prompt("Metal (Gold/Silver/Platinum/Palladium):", it.metal) ?? it.metal;
+        const newKarat = toNum(prompt("Karat (1–24):", it.karat), it.karat);
+        const newGrams = toNum(prompt("Grams:", it.grams), it.grams);
+        if (newKarat >= 1 && newKarat <= 24 && newGrams > 0 && ["Gold","Silver","Platinum","Palladium"].includes(newMetal)){
+          items[i] = { metal:newMetal, karat:newKarat, grams:newGrams };
+          save(LS_ITEMS, items);
+          render();
+        } else {
+          alert("Invalid edit. No changes saved.");
+        }
+      }
+    }
+
+    // ---------- Chart ----------
+    const ctx = document.getElementById("chart").getContext("2d");
+    const chart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: history.map(h => h.t),
+        datasets: [{
+          label: "Collection Worth ($)",
+          data: history.map(h => h.v),
+          fill: true,
+          tension: 0.25
+        }]
+      },
+      options: {
+        plugins: {
+          legend: { display: true }
+        },
+        scales: {
+          x: { ticks: { color: "#a3a3a3" }, grid: { color: "#1f2937" } },
+          y: { ticks: { color: "#a3a3a3" }, grid: { color: "#1f2937" } }
+        }
+      }
+    });
+
+    function snapshot(){
+      const total = toNum(totalValueEl.textContent, 0);
+      const t = new Date().toLocaleString();
+      history.push({ t, v: total });
+      save(LS_HISTORY, history);
+      chart.data.labels = history.map(h => h.t);
+      chart.data.datasets[0].data = history.map(h => h.v);
+      chart.update();
+    }
+
+    function resetHistory(){
+      if (!history.length) return;
+      if (confirm("Clear chart history snapshots? Your items will remain.")){
+        history = [];
+        save(LS_HISTORY, history);
+        chart.data.labels = [];
+        chart.data.datasets[0].data = [];
+        chart.update();
+      }
+    }
+
+    // ---------- Render ----------
+    function render(){
+      renderTable();
+    }
+
+    // ---------- Events ----------
+    document.getElementById("addBtn").addEventListener("click", addItem);
+    document.getElementById("updateBtn").addEventListener("click", () => { render(); snapshot(); });
+    document.getElementById("resetHistoryBtn").addEventListener("click", resetHistory);
+    tbody.addEventListener("click", onTableClick);
+
+    // initial render
+    render();
+  </script>
+</body>
+</html>
