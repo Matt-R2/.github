@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    :root { --bg:#0f172a; --card:#111827; --muted:#9ca3af; --text:#e5e7eb; --accent:#22c55e; --danger:#ef4444; }
+    :root { --bg:#0f172a; --card:#111827; --muted:#9ca3af; --text:#e5e7eb; --accent:#22c55e; --danger:#ef4444; --gold:#fbbf24; --silver:#c0c0c0; }
     *{box-sizing:border-box}
     body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial; background:var(--bg); color:var(--text)}
     .wrap{max-width:1000px; margin:32px auto; padding:0 16px}
@@ -22,6 +22,9 @@
     .btn-outline{border-color:#334155}
     .btn-danger{background:var(--danger); color:#190a0a; border:none}
     .btn-ghost{background:transparent; border:1px dashed #334155}
+    .btn-gold{background:var(--gold); color:#451a03; border:none; font-weight:600}
+    .btn-silver{background:var(--silver); color:#1f2937; border:none; font-weight:600}
+    .loading{opacity:0.6; cursor:wait}
     table{width:100%; border-collapse:separate; border-spacing:0 8px}
     th, td{padding:10px 12px; text-align:left}
     th{color:#a3a3a3; font-weight:600; border-bottom:1px solid #1f2937}
@@ -32,6 +35,11 @@
     .flex{display:flex; gap:10px; flex-wrap:wrap}
     .pill{padding:6px 10px; border-radius:999px; background:#0b1220; border:1px solid #1f2937; color:#9ca3af; font-size:12px}
     .total{font-size:22px; font-weight:700}
+    .gold-highlight{color:var(--gold); font-weight:600}
+    .silver-highlight{color:var(--silver); font-weight:600}
+    .status{margin-left:8px; font-size:10px; padding:2px 6px; border-radius:4px; background:#1f2937}
+    .success{background:#16a34a; color:#dcfce7}
+    .error{background:#dc2626; color:#fee2e2}
     @media (max-width: 720px){
       .row{grid-template-columns:1fr}
     }
@@ -40,7 +48,7 @@
 <body>
   <div class="wrap">
     <h1>MetalWorth</h1>
-    <div class="sub">Track individual pieces by metal, karat, and grams. Update live prices and chart your collection’s total over time.</div>
+    <div class="sub">Track individual pieces by metal, karat, and grams. Update live prices and chart your collection's total over time.</div>
 
     <!-- Add Item -->
     <div class="card">
@@ -50,13 +58,21 @@
           <select id="metal">
             <option>Gold</option>
             <option>Silver</option>
-            <option>Platinum</option>
-            <option>Palladium</option>
           </select>
         </div>
-        <div style="grid-column: span 3;">
+        <div id="karatSection" style="grid-column: span 3;">
           <label for="karat">Karat (1–24)</label>
           <input id="karat" type="number" min="1" max="24" step="1" placeholder="e.g., 18" />
+        </div>
+        <div id="puritySection" style="grid-column: span 3; display:none;">
+          <label for="purity">Purity %</label>
+          <select id="purity">
+            <option value="99.9">99.9% (Fine Silver)</option>
+            <option value="92.5" selected>92.5% (Sterling Silver)</option>
+            <option value="90">90% (Coin Silver)</option>
+            <option value="80">80%</option>
+            <option value="50">50%</option>
+          </select>
         </div>
         <div style="grid-column: span 3;">
           <label for="grams">Grams</label>
@@ -68,30 +84,25 @@
       </div>
     </div>
 
-    <!-- Prices -->
+    <!-- Live Prices -->
     <div class="card">
       <div class="row">
-        <div style="grid-column: span 3;">
-          <label for="priceGold">Gold $/g</label>
-          <input id="priceGold" type="number" min="0" step="0.01" value="60" />
+        <div style="grid-column: span 6;">
+          <label for="priceGold">Gold $/g <span class="gold-highlight">★ Live API</span></label>
+          <input id="priceGold" type="number" min="0" step="0.01" value="60" readonly style="opacity:0.7;" />
+          <span id="goldStatus" class="status"></span>
         </div>
-        <div style="grid-column: span 3;">
-          <label for="priceSilver">Silver $/g</label>
-          <input id="priceSilver" type="number" min="0" step="0.01" value="0.75" />
-        </div>
-        <div style="grid-column: span 3;">
-          <label for="pricePlatinum">Platinum $/g</label>
-          <input id="pricePlatinum" type="number" min="0" step="0.01" value="30" />
-        </div>
-        <div style="grid-column: span 3;">
-          <label for="pricePalladium">Palladium $/g</label>
-          <input id="pricePalladium" type="number" min="0" step="0.01" value="35" />
+        <div style="grid-column: span 6;">
+          <label for="priceSilver">Silver $/g <span class="silver-highlight">★ Live API</span></label>
+          <input id="priceSilver" type="number" min="0" step="0.01" value="0.75" readonly style="opacity:0.7;" />
+          <span id="silverStatus" class="status"></span>
         </div>
       </div>
       <div class="flex" style="margin-top:12px;">
-        <button class="btn-outline" id="updateBtn">Update Prices & Snapshot</button>
+        <button class="btn-gold" id="updateMetalsBtn">🏆 Update Live Prices</button>
+        <button class="btn-outline" id="updateBtn">Take Snapshot</button>
         <button class="btn-ghost" id="resetHistoryBtn" title="Clears only the chart history">Reset History</button>
-        <span class="pill">Purity formula: value = grams × (price/g) × (karat ÷ 24)</span>
+        <span class="pill">Purity formula: Gold = grams × (price/g) × (karat ÷ 24) | Silver = grams × (price/g) × (purity% ÷ 100)</span>
       </div>
     </div>
 
@@ -106,7 +117,7 @@
         <thead>
           <tr>
             <th>Metal</th>
-            <th>Karat</th>
+            <th>Purity</th>
             <th class="right">Grams</th>
             <th class="right">Value</th>
             <th class="right">Actions</th>
@@ -119,13 +130,17 @@
     <!-- Chart -->
     <div class="card">
       <div class="flex" style="justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <div class="pill">Snapshots recorded when you click “Update Prices & Snapshot”</div>
+        <div class="pill">Snapshots recorded when you click "Update Prices & Snapshot"</div>
       </div>
       <canvas id="chart" height="90"></canvas>
     </div>
   </div>
 
   <script>
+    // ---------- API Config ----------
+    const API_KEY = "5209567dcbe49befeb739dbbd73b4467"; // Your key
+    const METALPRICE_URL = `https://api.metalpriceapi.com/v1/latest?api_key=${API_KEY}&base=USD&symbols=USDXAU,USDXAG`;
+
     // ---------- State ----------
     const LS_ITEMS = "mw_items_v1";
     const LS_HISTORY = "mw_history_v1";
@@ -134,40 +149,58 @@
     let items = load(LS_ITEMS, []);
     let history = load(LS_HISTORY, []);
     let prices = load(LS_PRICES, {
-      Gold: 60, Silver: 0.75, Platinum: 30, Palladium: 35
+      Gold: 60, Silver: 0.75
     });
 
     // ---------- DOM ----------
     const el = (id) => document.getElementById(id);
     const metalEl = el("metal");
     const karatEl = el("karat");
+    const purityEl = el("purity");
     const gramsEl = el("grams");
     const tbody = el("tbody");
     const totalValueEl = el("totalValue");
+    const goldStatusEl = el("goldStatus");
+    const silverStatusEl = el("silverStatus");
+    const karatSection = el("karatSection");
+    const puritySection = el("puritySection");
 
-    // price inputs
+    // price inputs (readonly now)
     const priceInputs = {
       Gold: el("priceGold"),
-      Silver: el("priceSilver"),
-      Platinum: el("pricePlatinum"),
-      Palladium: el("pricePalladium"),
+      Silver: el("priceSilver")
     };
 
-    // hydrate price fields from saved prices
+    // hydrate price fields from saved prices (no event listeners since they're readonly)
     for (const m of Object.keys(priceInputs)) {
       priceInputs[m].value = prices[m];
-      priceInputs[m].addEventListener("input", () => {
-        prices[m] = toNum(priceInputs[m].value, 0);
-        save(LS_PRICES, prices);
-        render();
-      });
     }
+
+    // Handle metal selection change
+    metalEl.addEventListener("change", () => {
+      const selectedMetal = metalEl.value;
+      if (selectedMetal === "Silver") {
+        karatSection.style.display = "none";
+        puritySection.style.display = "block";
+      } else {
+        karatSection.style.display = "block";
+        puritySection.style.display = "none";
+      }
+    });
 
     // ---------- Utils ----------
     function save(key, value){ localStorage.setItem(key, JSON.stringify(value)); }
     function load(key, fallback){ try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } }
     function toNum(v, d=0){ const n = Number(v); return Number.isFinite(n) ? n : d; }
-    function purityFromKarat(k){ const n = toNum(k, 0); return Math.min(Math.max(n,1),24)/24; } // clamp 1..24
+    function purityFromValue(item) {
+      if (item.metal === "Gold") {
+        const n = toNum(item.karat, 0);
+        return Math.min(Math.max(n, 1), 24) / 24; // clamp 1..24
+      } else if (item.metal === "Silver") {
+        return toNum(item.purity, 0) / 100; // convert percentage to decimal
+      }
+      return 1; // default to pure if unknown
+    }
 
     function pricePerGram(metal){
       return toNum(priceInputs[metal].value, 0);
@@ -175,8 +208,66 @@
 
     function valueOfItem(item){
       const price = pricePerGram(item.metal);
-      const purity = purityFromKarat(item.karat);
+      const purity = purityFromValue(item);
       return toNum(item.grams,0) * price * purity;
+    }
+
+    function updateStatus(metal, message, isSuccess = true) {
+      const statusEl = metal === "Gold" ? goldStatusEl : silverStatusEl;
+      statusEl.textContent = message;
+      statusEl.className = `status ${isSuccess ? 'success' : 'error'}`;
+    }
+
+    // ---------- Live Price Fetch ----------
+    async function updateMetalPrices() {
+      const updateBtn = el("updateMetalsBtn");
+      const originalText = updateBtn.textContent;
+      
+      try {
+        updateBtn.textContent = "🔄 Fetching...";
+        updateBtn.classList.add("loading");
+        updateBtn.disabled = true;
+
+        const res = await fetch(METALPRICE_URL);
+        const data = await res.json();
+        
+        if (!data.success) throw new Error("API error: " + (data.error?.info || "Unknown error"));
+
+        const gramsPerOunce = 31.1035;
+        
+        // Update Gold
+        if (data.rates["USDXAU"]) {
+          const goldOunceRate = data.rates["USDXAU"];
+          const goldPerGram = goldOunceRate / gramsPerOunce;
+          prices["Gold"] = goldPerGram;
+          priceInputs.Gold.value = goldPerGram.toFixed(2);
+          updateStatus("Gold", `${goldPerGram.toFixed(2)}/g`, true);
+        }
+        
+        // Update Silver
+        if (data.rates["USDXAG"]) {
+          const silverOunceRate = data.rates["USDXAG"];
+          const silverPerGram = silverOunceRate / gramsPerOunce;
+          prices["Silver"] = silverPerGram;
+          priceInputs.Silver.value = silverPerGram.toFixed(2);
+          updateStatus("Silver", `${silverPerGram.toFixed(2)}/g`, true);
+        }
+
+        save(LS_PRICES, prices);
+        render(); // Re-render table with new prices
+        
+        console.log("Metal prices updated:", prices);
+        
+      } catch (err) {
+        console.error("Failed to fetch metal prices:", err);
+        updateStatus("Gold", "Failed", false);
+        updateStatus("Silver", "Failed", false);
+        alert("Unable to fetch live metal prices. Error: " + err.message);
+      } finally {
+        updateBtn.textContent = originalText;
+        updateBtn.classList.remove("loading");
+        updateBtn.disabled = false;
+      }
     }
 
     // ---------- Table ----------
@@ -189,11 +280,24 @@
         total += val;
 
         const tr = document.createElement("tr");
+        const isGold = item.metal === "Gold";
+        const isSilver = item.metal === "Silver";
+        
+        // Display purity based on metal type
+        let purityDisplay;
+        if (isGold) {
+          purityDisplay = `${item.karat}k`;
+        } else if (isSilver) {
+          purityDisplay = `${item.purity}%`;
+        } else {
+          purityDisplay = item.karat || item.purity || "N/A";
+        }
+        
         tr.innerHTML = `
-          <td>${item.metal}</td>
-          <td>${item.karat}</td>
+          <td${isGold ? ' class="gold-highlight"' : (isSilver ? ' class="silver-highlight"' : '')}>${item.metal}${isGold ? ' ★' : (isSilver ? ' ★' : '')}</td>
+          <td>${purityDisplay}</td>
           <td class="right">${Number(item.grams).toFixed(3)}</td>
-          <td class="right">$${val.toFixed(2)}</td>
+          <td class="right${isGold ? ' gold-highlight' : (isSilver ? ' silver-highlight' : '')}">${val.toFixed(2)}</td>
           <td class="right">
             <button class="btn-outline" data-edit="${idx}">Edit</button>
             <button class="btn-danger" data-del="${idx}">Delete</button>
@@ -208,19 +312,32 @@
     // ---------- Items Actions ----------
     function addItem(){
       const metal = metalEl.value;
-      const karat = toNum(karatEl.value, NaN);
       const grams = toNum(gramsEl.value, NaN);
 
-      if (!Number.isFinite(karat) || karat < 1 || karat > 24) {
-        alert("Please enter a karat between 1 and 24.");
-        return;
-      }
       if (!Number.isFinite(grams) || grams <= 0) {
         alert("Please enter grams > 0.");
         return;
       }
 
-      items.push({ metal, karat, grams });
+      let item = { metal, grams };
+
+      if (metal === "Gold") {
+        const karat = toNum(karatEl.value, NaN);
+        if (!Number.isFinite(karat) || karat < 1 || karat > 24) {
+          alert("Please enter a karat between 1 and 24.");
+          return;
+        }
+        item.karat = karat;
+      } else if (metal === "Silver") {
+        const purity = toNum(purityEl.value, NaN);
+        if (!Number.isFinite(purity) || purity <= 0 || purity > 100) {
+          alert("Please select a valid silver purity.");
+          return;
+        }
+        item.purity = purity;
+      }
+
+      items.push(item);
       save(LS_ITEMS, items);
       karatEl.value = "";
       gramsEl.value = "";
@@ -243,11 +360,31 @@
       if (editIdx !== null){
         const i = Number(editIdx);
         const it = items[i];
-        const newMetal = prompt("Metal (Gold/Silver/Platinum/Palladium):", it.metal) ?? it.metal;
-        const newKarat = toNum(prompt("Karat (1–24):", it.karat), it.karat);
+        const newMetal = prompt("Metal (Gold/Silver):", it.metal) ?? it.metal;
         const newGrams = toNum(prompt("Grams:", it.grams), it.grams);
-        if (newKarat >= 1 && newKarat <= 24 && newGrams > 0 && ["Gold","Silver","Platinum","Palladium"].includes(newMetal)){
-          items[i] = { metal:newMetal, karat:newKarat, grams:newGrams };
+        
+        if (newGrams > 0 && ["Gold","Silver"].includes(newMetal)) {
+          let newItem = { metal: newMetal, grams: newGrams };
+          
+          if (newMetal === "Gold") {
+            const newKarat = toNum(prompt("Karat (1–24):", it.karat || 18), it.karat || 18);
+            if (newKarat >= 1 && newKarat <= 24) {
+              newItem.karat = newKarat;
+            } else {
+              alert("Invalid karat. No changes saved.");
+              return;
+            }
+          } else if (newMetal === "Silver") {
+            const newPurity = toNum(prompt("Purity % (e.g., 92.5 for Sterling):", it.purity || 92.5), it.purity || 92.5);
+            if (newPurity > 0 && newPurity <= 100) {
+              newItem.purity = newPurity;
+            } else {
+              alert("Invalid purity. No changes saved.");
+              return;
+            }
+          }
+          
+          items[i] = newItem;
           save(LS_ITEMS, items);
           render();
         } else {
@@ -266,6 +403,8 @@
           label: "Collection Worth ($)",
           data: history.map(h => h.v),
           fill: true,
+          backgroundColor: "rgba(251, 191, 36, 0.1)",
+          borderColor: "#fbbf24",
           tension: 0.25
         }]
       },
@@ -308,12 +447,20 @@
 
     // ---------- Events ----------
     document.getElementById("addBtn").addEventListener("click", addItem);
-    document.getElementById("updateBtn").addEventListener("click", () => { render(); snapshot(); });
+    document.getElementById("updateMetalsBtn").addEventListener("click", updateMetalPrices);
+    document.getElementById("updateBtn").addEventListener("click", async () => {
+      await updateMetalPrices(); // fetch live prices first
+      snapshot();
+    });
     document.getElementById("resetHistoryBtn").addEventListener("click", resetHistory);
     tbody.addEventListener("click", onTableClick);
 
     // initial render
     render();
+    
+    // Show initial status
+  updateStatus("Gold", "Ready", true);
+  updateStatus("Silver", "Ready", true);
   </script>
 </body>
 </html>
